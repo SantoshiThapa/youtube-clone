@@ -1,14 +1,21 @@
-const express = require("express");
+\const express = require("express");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const { v4: uuidv4 } = require("uuid");
+const cloudinary = require("cloudinary").v2;
 
 const Video = require("../models/Video");
 const { enqueueTranscodeJob } = require("../queue");
 const { invalidateVideo } = require("../cache");
 
 const router = express.Router();
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const ORIGINAL_DIR = path.resolve(
   __dirname,
@@ -17,12 +24,6 @@ const ORIGINAL_DIR = path.resolve(
 );
 fs.mkdirSync(ORIGINAL_DIR, { recursive: true });
 
-// ---- Step 1: client asks for a "pre-signed URL" -------------------------
-// Real YouTube/S3 would hand back a temporary signed URL pointing directly
-// at blob storage, so the API server isn't in the hot path of the upload.
-// We can't do real S3 pre-signing without a cloud account, so we simulate
-// the same *shape* of the flow: generate a videoId + a one-time upload
-// endpoint, create a placeholder metadata doc, and hand the URL back.
 router.post("/upload-url", async (req, res) => {
   try {
     const videoId = uuidv4();
@@ -44,7 +45,6 @@ router.post("/upload-url", async (req, res) => {
   }
 });
 
-// ---- Step 2: client uploads the actual bytes to that URL -----------------
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, ORIGINAL_DIR),
   filename: (req, file, cb) => {
@@ -55,7 +55,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 1024 * 1024 * 1024 }, // 1GB, same cap the book uses
+  limits: { fileSize: 1024 * 1024 * 1024 },
 });
 
 router.post("/upload/:videoId", upload.single("video"), async (req, res) => {
@@ -66,16 +66,23 @@ router.post("/upload/:videoId", upload.single("video"), async (req, res) => {
     const video = await Video.findById(videoId);
     if (!video) return res.status(404).json({ error: "unknown videoId" });
 
+    console.log(`[upload] uploading ${videoId} to Cloudinary...`);
+    const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
+      resource_type: "video",
+      public_id: `youtube-clone/${videoId}`,
+    });
+
+    // remove the temp local file now that it's safely in Cloudinary
+    fs.unlink(req.file.path, () => {});
+
     video.originalFileName = req.file.originalname;
-    video.originalPath = req.file.path;
+    video.originalPath = cloudinaryResult.secure_url;
     video.sizeBytes = req.file.size;
     video.status = "processing";
     await video.save();
     await invalidateVideo(videoId);
 
-    // Hand off to the transcoding pipeline via the message queue instead of
-    // transcoding inline -- this is the decoupling from Figure 14-26.
-    await enqueueTranscodeJob(videoId, req.file.path);
+    await enqueueTranscodeJob(videoId, cloudinaryResult.secure_url);
 
     res.json({ success: true, videoId, status: "processing" });
   } catch (err) {
@@ -84,7 +91,6 @@ router.post("/upload/:videoId", upload.single("video"), async (req, res) => {
   }
 });
 
-// ---- Flow b: update metadata (title/description) in parallel -------------
 router.patch("/:videoId/metadata", async (req, res) => {
   try {
     const { title, description } = req.body;

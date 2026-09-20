@@ -24,7 +24,7 @@
   </main>
 
   <script>
-    const API_BASE = "http://localhost:4000";
+    const API_BASE = "https://youtube-app-tdxg.onrender.com";
     const form = document.getElementById("upload-form");
     const statusEl = document.getElementById("status");
     const progressWrap = document.getElementById("progress-wrap");
@@ -40,8 +40,6 @@
       const file = document.getElementById("file").files[0];
 
       try {
-        // Step 1: ask the API server for a "pre-signed" upload URL
-        // (Figure 14-27, step 1-2 in the book).
         statusEl.textContent = "Requesting upload URL...";
         const urlRes = await fetch(`${API_BASE}/api/videos/upload-url`, {
           method: "POST",
@@ -50,8 +48,6 @@
         });
         const { videoId, uploadUrl } = await urlRes.json();
 
-        // Step 2: upload the actual bytes directly to that URL
-        // (Figure 14-27, step 3), with progress reporting.
         statusEl.textContent = "Uploading video...";
         progressWrap.style.display = "block";
         await uploadWithProgress(`${API_BASE}${uploadUrl}`, file, (pct) => {

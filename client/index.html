@@ -19,7 +19,7 @@
   </main>
 
   <script>
-    const API_BASE = "http://localhost:4000";
+    const API_BASE = "https://youtube-app-tdxg.onrender.com";
 
     async function loadFeed() {
       const feedEl = document.getElementById("feed");
@@ -45,7 +45,7 @@
           )
           .join("");
       } catch (err) {
-        feedEl.innerHTML = "Failed to load feed. Is the API server running on :4000?";
+        feedEl.innerHTML = "Failed to load feed. Is the API server running?";
         console.error(err);
       }
     }

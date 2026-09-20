@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Upload — CloneTube</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <a href="index.html">▶ CloneTube</a>
+    <nav><a href="index.html">Home</a></nav>
+  </header>
+
+  <main>
+    <h2>Upload a video</h2>
+    <form id="upload-form">
+      <input type="text" id="title" placeholder="Title" required />
+      <textarea id="description" placeholder="Description" rows="3"></textarea>
+      <input type="file" id="file" accept="video/*" required />
+      <div id="progress-wrap"><div id="progress-bar"></div></div>
+      <div id="status"></div>
+      <button type="submit" id="submit-btn">Upload</button>
+    </form>
+  </main>
+
+  <script>
+    const API_BASE = "http://localhost:4000";
+    const form = document.getElementById("upload-form");
+    const statusEl = document.getElementById("status");
+    const progressWrap = document.getElementById("progress-wrap");
+    const progressBar = document.getElementById("progress-bar");
+    const submitBtn = document.getElementById("submit-btn");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      submitBtn.disabled = true;
+
+      const title = document.getElementById("title").value;
+      const description = document.getElementById("description").value;
+      const file = document.getElementById("file").files[0];
+
+      try {
+        // Step 1: ask the API server for a "pre-signed" upload URL
+        // (Figure 14-27, step 1-2 in the book).
+        statusEl.textContent = "Requesting upload URL...";
+        const urlRes = await fetch(`${API_BASE}/api/videos/upload-url`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, description }),
+        });
+        const { videoId, uploadUrl } = await urlRes.json();
+
+        // Step 2: upload the actual bytes directly to that URL
+        // (Figure 14-27, step 3), with progress reporting.
+        statusEl.textContent = "Uploading video...";
+        progressWrap.style.display = "block";
+        await uploadWithProgress(`${API_BASE}${uploadUrl}`, file, (pct) => {
+          progressBar.style.width = pct + "%";
+        });
+
+        statusEl.textContent = "Upload complete! Transcoding in the background...";
+        setTimeout(() => (location.href = `watch.html?id=${videoId}`), 1200);
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Upload failed. Check the console / API server logs.";
+        submitBtn.disabled = false;
+      }
+    });
+
+    function uploadWithProgress(url, file, onProgress) {
+      return new Promise((resolve, reject) => {
+        const formData = new FormData();
+        formData.append("video", file);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", url);
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+        };
+        xhr.onload = () => (xhr.status < 300 ? resolve() : reject(new Error(xhr.responseText)));
+        xhr.onerror = () => reject(new Error("network error"));
+        xhr.send(formData);
+      });
+    }
+  </script>
+</body>
+</html>

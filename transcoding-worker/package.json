@@ -1,0 +1,14 @@
+{
+  "name": "transcoding-worker",
+  "version": "1.0.0",
+  "description": "Task worker that runs the video transcoding DAG (encodings, thumbnail)",
+  "main": "src/worker.js",
+  "scripts": {
+    "start": "node src/worker.js"
+  },
+  "dependencies": {
+    "bullmq": "^5.7.0",
+    "dotenv": "^16.4.5",
+    "fluent-ffmpeg": "^2.1.3"
+  }
+}

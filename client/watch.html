@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Watch — CloneTube</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.7/hls.min.js"></script>
+</head>
+<body>
+  <header>
+    <a href="index.html">▶ CloneTube</a>
+    <nav><a href="index.html">Home</a></nav>
+  </header>
+
+  <main>
+    <video id="player" controls></video>
+    <h2 id="title">Loading...</h2>
+    <p id="description"></p>
+    <div id="status"></div>
+    <div class="res-picker" id="res-picker"></div>
+  </main>
+
+  <script>
+    const API_BASE = "http://localhost:4000";
+    const params = new URLSearchParams(location.search);
+    const videoId = params.get("id");
+    const player = document.getElementById("player");
+    let hls;
+
+    async function fetchVideo() {
+      const res = await fetch(`${API_BASE}/api/videos/${videoId}`);
+      if (!res.ok) throw new Error("video not found");
+      const data = await res.json();
+      return data.video;
+    }
+
+    function playHls(url) {
+      if (Hls.isSupported()) {
+        if (hls) hls.destroy();
+        hls = new Hls();
+        hls.loadSource(url);
+        hls.attachMedia(player);
+      } else if (player.canPlayType("application/vnd.apple.mpegurl")) {
+        // Safari has native HLS support
+        player.src = url;
+      }
+    }
+
+    function renderResolutionPicker(resolutions, masterUrl) {
+      const el = document.getElementById("res-picker");
+      const buttons = [
+        `<button data-url="${API_BASE}${masterUrl}" class="active">Auto</button>`,
+        ...resolutions.map(
+          (r) => `<button data-url="${API_BASE}${r.playlistUrl}">${r.label}</button>`
+        ),
+      ];
+      el.innerHTML = buttons.join("");
+      el.querySelectorAll("button").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          el.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          playHls(btn.dataset.url);
+        });
+      });
+    }
+
+    async function pollUntilReady() {
+      const statusEl = document.getElementById("status");
+      const video = await fetchVideo();
+      document.getElementById("title").textContent = video.title;
+      document.getElementById("description").textContent = video.description || "";
+
+      if (video.status === "ready") {
+        statusEl.textContent = "";
+        playHls(`${API_BASE}${video.masterPlaylistUrl}`);
+        renderResolutionPicker(video.resolutions || [], video.masterPlaylistUrl);
+      } else if (video.status === "failed") {
+        statusEl.textContent = "Transcoding failed for this video.";
+      } else {
+        statusEl.textContent = `Status: ${video.status} — this mirrors the book's async transcoding pipeline, so give it a bit (ffmpeg needs to run). Re-checking in 3s...`;
+        setTimeout(pollUntilReady, 3000);
+      }
+    }
+
+    pollUntilReady().catch((err) => {
+      document.getElementById("status").textContent = "Could not load video.";
+      console.error(err);
+    });
+  </script>
+</body>
+</html>

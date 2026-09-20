@@ -1,0 +1,16 @@
+{
+  "name": "completion-handler",
+  "version": "1.0.0",
+  "description": "Workers that pull transcoding-completion events and update Metadata DB + cache",
+  "main": "src/handler.js",
+  "scripts": {
+    "start": "node src/handler.js"
+  },
+  "dependencies": {
+    "bullmq": "^5.7.0",
+    "dotenv": "^16.4.5",
+    "ioredis": "^5.4.1",
+    "mongoose": "^8.4.0",
+    "uuid": "^14.0.2"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "youtube-clone-deploy",
+  "private": true,
+  "scripts": {
+    "postinstall": "cd api-server && npm install && cd ../transcoding-worker && npm install && cd ../completion-handler && npm install",
+    "start": "concurrently \"node api-server/src/index.js\" \"node transcoding-worker/src/worker.js\" \"node completion-handler/src/handler.js\""
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

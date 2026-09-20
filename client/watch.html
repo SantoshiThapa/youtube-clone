@@ -48,10 +48,10 @@
     function renderResolutionPicker(resolutions, masterUrl) {
       const el = document.getElementById("res-picker");
       const buttons = [
-        `<button data-url="${API_BASE}${masterUrl}" class="active">Auto</button>`,
-        ...resolutions.map(
-          (r) => `<button data-url="${API_BASE}${r.playlistUrl}">${r.label}</button>`
-        ),
+        `<button data-url="${masterUrl}" class="active">Auto</button>`,
+...resolutions.map(
+  (r) => `<button data-url="${r.playlistUrl}">${r.label}</button>`
+),
       ];
       el.innerHTML = buttons.join("");
       el.querySelectorAll("button").forEach((btn) => {
@@ -71,7 +71,7 @@
 
       if (video.status === "ready") {
         statusEl.textContent = "";
-        playHls(`${API_BASE}${video.masterPlaylistUrl}`);
+        playHls(video.masterPlaylistUrl);
         renderResolutionPicker(video.resolutions || [], video.masterPlaylistUrl);
       } else if (video.status === "failed") {
         statusEl.textContent = "Transcoding failed for this video.";

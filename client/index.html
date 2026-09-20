@@ -36,7 +36,7 @@
           .map(
             (v) => `
           <div class="card" onclick="location.href='watch.html?id=${v._id}'">
-            <img src="${API_BASE}${v.thumbnailUrl || ""}" onerror="this.style.background='#272727'" />
+            <img src="${v.thumbnailUrl || ""}" onerror="this.style.background='#272727'" />
             <h3>${escapeHtml(v.title)}</h3>
             <p>${escapeHtml(v.description || "")}</p>
             <span class="badge">${data.source}</span>

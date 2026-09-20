@@ -35,17 +35,33 @@
         feedEl.innerHTML = data.videos
           .map(
             (v) => `
-          <div class="card" onclick="location.href='watch.html?id=${v._id}'">
-            <img src="${v.thumbnailUrl || ""}" onerror="this.style.background='#272727'" />
-            <h3>${escapeHtml(v.title)}</h3>
-            <p>${escapeHtml(v.description || "")}</p>
-            <span class="badge">${data.source}</span>
+          <div class="card">
+            <div onclick="location.href='watch.html?id=${v._id}'">
+              <img src="${v.thumbnailUrl || ""}" onerror="this.style.background='#272727'" />
+              <h3>${escapeHtml(v.title)}</h3>
+              <p>${escapeHtml(v.description || "")}</p>
+              <span class="badge">${data.source}</span>
+            </div>
+            <button onclick="deleteVideo('${v._id}', event)" style="margin-top:6px;background:#c0392b;color:white;border:none;padding:6px 10px;border-radius:4px;cursor:pointer;">Delete</button>
           </div>
         `
           )
           .join("");
       } catch (err) {
         feedEl.innerHTML = "Failed to load feed. Is the API server running?";
+        console.error(err);
+      }
+    }
+
+    async function deleteVideo(id, event) {
+      event.stopPropagation();
+      if (!confirm("Delete this video?")) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/videos/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("delete failed");
+        loadFeed();
+      } catch (err) {
+        alert("Failed to delete video.");
         console.error(err);
       }
     }

@@ -17,12 +17,11 @@ const TRANSCODED_DIR = path.resolve(
 // directly. A separate completion-handler service consumes it.
 const completionQueue = new Queue("completion-queue", { connection });
 
-// Renditions we generate per video -- stands in for the "Video encodings"
-// task in the book's DAG (Figure 14-8), simplified to 3 fixed ladders.
+// Renditions we generate per video -- reduced to 2 to fit Render's
+// free-tier memory limits (512MB), run sequentially below.
 const RENDITIONS = [
   { label: "360p", height: 360, videoBitrate: "800k", audioBitrate: "96k" },
   { label: "480p", height: 480, videoBitrate: "1400k", audioBitrate: "128k" },
-  { label: "720p", height: 720, videoBitrate: "2800k", audioBitrate: "128k" },
 ];
 
 function ensureDir(dir) {
@@ -97,12 +96,17 @@ const worker = new Worker(
     const outputDir = path.join(TRANSCODED_DIR, videoId);
     ensureDir(outputDir);
 
-    // Run the DAG's tasks. Thumbnail + each rendition are independent
-    // branches (see Figure 14-8), so they run in parallel here too.
-    const [thumbnailPath, ...renditionResults] = await Promise.all([
-      generateThumbnail(originalFilePath, outputDir),
-      ...RENDITIONS.map((r) => transcodeRendition(originalFilePath, outputDir, r)),
-    ]);
+    // Run thumbnail + each rendition ONE AT A TIME (not in parallel) --
+    // avoids running multiple ffmpeg processes simultaneously, which was
+    // exceeding Render's free-tier memory limit and getting the service
+    // killed/restarted mid-job.
+    const thumbnailPath = await generateThumbnail(originalFilePath, outputDir);
+
+    const renditionResults = [];
+    for (const r of RENDITIONS) {
+      const result = await transcodeRendition(originalFilePath, outputDir, r);
+      renditionResults.push(result);
+    }
 
     writeMasterPlaylist(outputDir, renditionResults);
 
@@ -120,7 +124,7 @@ const worker = new Worker(
 
     console.log(`[worker] video ${videoId} transcoded, completion event queued`);
   },
-  { connection, concurrency: 2 }
+  { connection, concurrency: 1 }
 );
 
 worker.on("failed", (job, err) => {

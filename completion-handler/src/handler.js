@@ -32,18 +32,15 @@ async function start() {
   const worker = new Worker(
     "completion-queue",
     async (job) => {
-      const { videoId, thumbnailPath, masterPlaylistPath, resolutions } = job.data;
+      const { videoId, thumbnailUrl, masterPlaylistUrl, resolutions } = job.data;
       console.log(`[completion-handler] processing completion event for ${videoId}`);
 
       await Video.findByIdAndUpdate(videoId, {
         $set: {
           status: "ready",
-          thumbnailUrl: `/cdn/${thumbnailPath}`,
-          masterPlaylistUrl: `/cdn/${masterPlaylistPath}`,
-          resolutions: resolutions.map((r) => ({
-            label: r.label,
-            playlistUrl: `/cdn/${r.playlistPath}`,
-          })),
+          thumbnailUrl,
+          masterPlaylistUrl,
+          resolutions,
         },
       });
 
